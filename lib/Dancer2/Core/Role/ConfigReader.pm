@@ -3,16 +3,15 @@ package Dancer2::Core::Role::ConfigReader;
 
 use Moo::Role;
 
-use File::Spec;
+use Carp 'croak';
+use Path::Tiny ();
 use Config::Any;
 use Hash::Merge::Simple;
-use Carp 'croak';
 use Module::Runtime 'require_module';
 
 use Dancer2::Core::Factory;
 use Dancer2::Core;
 use Dancer2::Core::Types;
-use Dancer2::FileUtils 'path';
 
 with 'Dancer2::Core::Role::HasLocation';
 
@@ -39,9 +38,19 @@ has environments_location => (
     isa     => Str,
     lazy    => 1,
     default => sub {
-        $ENV{DANCER_ENVDIR}
-          || File::Spec->catdir( $_[0]->config_location, 'environments' )
-          || File::Spec->catdir( $_[0]->location,        'environments' );
+        # short circuit
+        defined $ENV{'DANCER_ENVDIR'}
+            and return $ENV{'DANCER_ENVDIR'};
+
+        my $self = shift;
+
+        foreach my $maybe_path ( $self->config_location, $self->location ) {
+            my $path = Path::Tiny::path($maybe_path, 'environments');
+            $path->exists && $path->is_dir
+              and return $path->stringify;
+        }
+
+        return '';
     },
 );
 
@@ -133,7 +142,14 @@ sub _build_config_files {
         foreach my $file ( [ $location, "config.$ext" ],
             [ $self->environments_location, "$running_env.$ext" ] )
         {
-            my $path = path( @{$file} );
+            # This is a potential security problem,
+            # escaping outside the current directory
+            # It's now disabled
+            # FIXME: Commit separately
+            $file->[0] eq ''
+                and next;
+
+            my $path = Path::Tiny::path(@{$file})->stringify;
             next if !-r $path;
 
             push @files, $path;
