@@ -4,9 +4,9 @@ package Dancer2::Core::DSL;
 
 use Moo;
 use Carp;
+use Path::Tiny ();
 use Module::Runtime 'require_module';
 use Dancer2::Core::Hook;
-use Dancer2::FileUtils ();
 use Dancer2::Core::Response::Delayed;
 
 with 'Dancer2::Core::Role::DSL';
@@ -139,8 +139,8 @@ sub error   { shift->app->log( error   => @_ ) }
 sub true  {1}
 sub false {0}
 
-sub dirname { shift and Dancer2::FileUtils::dirname(@_) }
-sub path    { shift and Dancer2::FileUtils::path(@_) }
+sub dirname { shift and Path::Tiny::path(@_)->parent->stringify }
+sub path    { shift and Path::Tiny::path(@_)->stringify }
 
 sub config { shift->app->settings }
 
